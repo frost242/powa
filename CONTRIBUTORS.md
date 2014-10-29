@@ -6,3 +6,4 @@ Contributors to PoWA :
   * Thomas Reiss
   * Hyunjun Kim
   * Raghu Ram
+  * Mark Wong
