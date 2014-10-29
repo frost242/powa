@@ -1,4 +1,6 @@
 powa.o
+pg_proctab.o
 powa.so
 ui/powa.conf
 ui/log
+*~
