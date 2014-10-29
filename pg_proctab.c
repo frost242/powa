@@ -14,9 +14,16 @@
 #include <fcntl.h>
 #include <sys/param.h>
 #include <executor/spi.h>
-#include "pg_common.h"
+
+#ifdef __linux
+#include <ctype.h>
+#include <linux/magic.h>
+#endif
 
 #define FULLCOMM_LEN 1024
+#define BIGINT_LEN 20
+#define FLOAT_LEN 20
+#define INTEGER_LEN 10
 
 #ifdef PG91
 #define GET_PIDS \
@@ -42,6 +49,30 @@
 		} \
 		strncpy(value, p, len); \
 		value[len] = '\0';
+
+#define PROCFS "/proc"
+
+#define GET_NEXT_VALUE(p, q, value, length, msg, delim) \
+        if ((q = strchr(p, delim)) == NULL) \
+        { \
+            elog(ERROR, msg); \
+            return 0; \
+        } \
+        length = q - p; \
+        strncpy(value, p, length); \
+        value[length] = '\0'; \
+        p = q + 1;
+
+#define SKIP_TOKEN(p) \
+		/* Skipping leading white space. */ \
+		while (isspace(*p)) \
+			p++; \
+		/* Skip token. */ \
+		while (*p && !isspace(*p)) \
+			p++; \
+		/* Skipping trailing white space. */ \
+		while (isspace(*p)) \
+			p++;
 #endif                          /* __linux__ */
 
 enum proctab { i_pid, i_comm, i_fullcomm, i_state, i_ppid, i_pgrp, i_session,
