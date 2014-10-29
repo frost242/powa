@@ -53,7 +53,8 @@ enum proctab { i_pid, i_comm, i_fullcomm, i_state, i_ppid, i_pgrp, i_session,
     i_syscw, i_reads, i_writes, i_cwrites
 };
 enum cputime { i_user, i_nice_c, i_system, i_idle, i_iowait, i_irq, i_softirq,
-        i_steal };
+    i_steal
+};
 enum loadavg { i_load1, i_load5, i_load15, i_last_pid };
 enum memusage { i_memused, i_memfree, i_memshared, i_membuffers, i_memcached,
     i_swapused, i_swapfree, i_swapcached
@@ -776,11 +777,6 @@ int get_cputime(char **values)
     char       *q;
 
     int         length;
-
-    long        ticks_unit;
-
-    /* get the unit */
-    ticks_unit = sysconf(_SC_CLK_TCK);
 
     /*
        Check if /proc is mounted. 
