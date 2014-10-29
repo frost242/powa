@@ -773,8 +773,8 @@ $function$
 -- needs some more work to compute human readable units at output
 CREATE OR REPLACE FUNCTION powa_proctab_get_cpu_statdata_sample (ts_start timestamp with time zone,
      ts_end timestamp with time zone, samples integer)
- RETURNS TABLE (ts timestamp with time zone, cpuuser bigint, cpunice bigint, cpusystem bigint, cpuidle bigint,
-                cpuiowait bigint, cpuirq bigint, cpusoftirq bigint, cpusteal bigint)
+ RETURNS TABLE (ts timestamp with time zone, cpuuser float, cpunice float, cpusystem float, cpuidle float,
+                cpuiowait float, cpuirq float, cpusoftirq float, cpusteal float)
 AS $PROC$
 BEGIN
    RETURN QUERY
@@ -804,10 +804,16 @@ BEGIN
                int8larger(lead(sh.cpusteal) OVER (querygroup) - sh.cpusteal,0) AS cpusteal
           FROM sampled_cpu_history sh
          WINDOW querygroup AS (ORDER BY sh.ts)
+   ), cpu_history_percent AS (
+        SELECT hs.ts, hs.cpuuser, hs.cpunice, hs.cpusystem, hs.cpuidle, hs.cpuiowait, hs.cpuirq, hs.cpusoftirq, hs.cpusteal,
+               100.0::float / (hs.cpuuser + hs.cpunice + hs.cpusystem + hs.cpuidle + hs.cpuiowait + hs.cpuirq + hs.cpusoftirq + hs.cpusteal) AS scale
+          FROM cpu_history_differential hs
+         WHERE hs.cpuuser IS NOT NULL
    )
-   SELECT *
-     FROM cpu_history_differential hd
-    WHERE hd.cpuuser IS NOT NULL;
+   SELECT pc.ts, pc.cpuuser*scale, pc.cpunice*scale, pc.cpusystem*scale, pc.cpuidle*scale,
+          pc.cpuiowait*scale, pc.cpuirq*scale, pc.cpusoftirq*scale, pc.cpusteal*scale
+     FROM cpu_history_percent pc
+    WHERE pc.cpuuser IS NOT NULL;
 END;
 $PROC$ LANGUAGE plpgsql;
 
