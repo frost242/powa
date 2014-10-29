@@ -161,6 +161,10 @@ CREATE TABLE powa_load_history_current (
     record powa_load_history_record
 );
 
+CREATE INDEX powa_cpu_history_ts ON powa_cpu_history USING gist (coalesce_range);
+CREATE INDEX powa_mem_history_ts ON powa_mem_history USING gist (coalesce_range);
+CREATE INDEX powa_load_history_ts ON powa_load_history USING gist (coalesce_range);
+
 /* register proctab functions */
 INSERT INTO powa_functions VALUES ('snapshot','powa_take_proctab_snapshot',false),('aggregate','powa_proctab_aggregate',true),('purge','powa_proctab_purge',true);
 
