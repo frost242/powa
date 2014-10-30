@@ -816,7 +816,7 @@ BEGIN
    )
    SELECT pc.ts, pc.cpuuser*scale, pc.cpunice*scale, pc.cpusystem*scale, pc.cpuidle*scale,
           pc.cpuiowait*scale, pc.cpuirq*scale, pc.cpusoftirq*scale, pc.cpusteal*scale
-     FROM cpu_history_percent pc
+     FROM cpu_history_percent pc;
 END;
 $PROC$ LANGUAGE plpgsql;
 
