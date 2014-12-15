@@ -27,16 +27,6 @@
 #define FLOAT_LEN 20
 #define INTEGER_LEN 10
 
-#ifdef PG91
-#define GET_PIDS \
-		"SELECT procpid " \
-		"FROM pg_stat_activity"
-#else
-#define GET_PIDS \
-		"SELECT pid " \
-		"FROM pg_stat_activity"
-#endif                          /* PG91 */
-
 #ifdef __linux__
 #define GET_VALUE(value) \
 		p = strchr(p, ':'); \
@@ -80,7 +70,6 @@
 enum cputime { i_user, i_nice_c, i_system, i_idle, i_iowait, i_irq, i_softirq,
     i_steal
 };
-enum loadavg { i_load1, i_load5, i_load15, i_last_pid };
 enum memusage { i_memused, i_memfree, i_memshared, i_membuffers, i_memcached,
     i_swapused, i_swapfree, i_swapcached
 };
@@ -103,8 +92,6 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
     int         fd;
     int         len;
     char        buffer[4096];
-//	int			num = 0;
-	/* metrics */
     int64		cpuuser = 0;
     int64		cpunice = 0;
     int64		cpusys = 0;
@@ -113,16 +100,16 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
     int64		cpuirq = 0;
     int64		cpusoftirq = 0;
     int64		cpusteal = 0;
-	/* output stuff */
 	TupleDesc	tupleDesc;
 	HeapTuple	tuple;
-	Datum		values[8];
-    bool		nulls[8];
+	Datum		values[3];
+    bool		nulls[3];
 	Datum		result;
 
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 	Assert(tupleDesc->natts == lengthof(values));
+
 #ifdef __linux__
     /*
        Check if /proc is mounted. 
@@ -152,26 +139,26 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
 				&cpuuser, &cpunice, &cpusys, &cpuidle, &cpuiowait, &cpuirq,
                 &cpusoftirq, &cpusteal);
 #endif                          /* __linux__ */
-/*
-    elog(DEBUG5, "pg_cputime: [%d] user = %08d", (int) i_user, cpuuser);
-    elog(DEBUG5, "pg_cputime: [%d] nice = %08d", (int) i_nice_c, cpunice);
-    elog(DEBUG5, "pg_cputime: [%d] system = %08d", (int) i_system, cpusys);
-    elog(DEBUG5, "pg_cputime: [%d] idle = %08d", (int) i_idle, cpuidle);
-    elog(DEBUG5, "pg_cputime: [%d] iowait = %08d", (int) i_iowait, cpuiowait);
-    elog(DEBUG5, "pg_cputime: [%d] irq = %08d", (int) i_irq, cpuirq);
-    elog(DEBUG5, "pg_cputime: [%d] softirq = %08d", (int) i_softirq, cpusoftirq);
-    elog(DEBUG5, "pg_cputime: [%d] steal = %08d", (int) i_steal, cpusteal);
-*/
+
+    elog(DEBUG5, "pg_cputime: [%d] user = %ld", (int) i_user, cpuuser);
+    elog(DEBUG5, "pg_cputime: [%d] nice = %ld", (int) i_nice_c, cpunice);
+    elog(DEBUG5, "pg_cputime: [%d] system = %ld", (int) i_system, cpusys);
+    elog(DEBUG5, "pg_cputime: [%d] idle = %ld", (int) i_idle, cpuidle);
+    elog(DEBUG5, "pg_cputime: [%d] iowait = %ld", (int) i_iowait, cpuiowait);
+    elog(DEBUG5, "pg_cputime: [%d] irq = %ld", (int) i_irq, cpuirq);
+    elog(DEBUG5, "pg_cputime: [%d] softirq = %ld", (int) i_softirq, cpusoftirq);
+    elog(DEBUG5, "pg_cputime: [%d] steal = %ld", (int) i_steal, cpusteal);
+
 	memset(nulls, 0, sizeof(nulls));
 	memset(values, 0, sizeof(values));
-		values[0] = Int64GetDatum(cpuuser);
-		values[1] = Int64GetDatum(cpunice);
-		values[2] = Int64GetDatum(cpusys);
-		values[3] = Int64GetDatum(cpuidle);
-		values[4] = Int64GetDatum(cpuiowait);
-		values[5] = Int64GetDatum(cpuirq);
-		values[6] = Int64GetDatum(cpusoftirq);
-		values[7] = Int64GetDatum(cpusteal);
+	values[0] = Int64GetDatum(cpuuser);
+	values[1] = Int64GetDatum(cpunice);
+	values[2] = Int64GetDatum(cpusys);
+	values[3] = Int64GetDatum(cpuidle);
+	values[4] = Int64GetDatum(cpuiowait);
+	values[5] = Int64GetDatum(cpuirq);
+	values[6] = Int64GetDatum(cpusoftirq);
+	values[7] = Int64GetDatum(cpusteal);
 
 	tuple = heap_form_tuple(tupleDesc, values, nulls);
 	result = HeapTupleGetDatum(tuple);
@@ -181,109 +168,24 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
 
 Datum pg_loadavg(PG_FUNCTION_ARGS)
 {
-    FuncCallContext *funcctx;
-    int         call_cntr;
-    int         max_calls;
-    TupleDesc   tupdesc;
-    AttInMetadata *attinmeta;
-
-    elog(DEBUG5, "pg_loadavg: Entering stored function.");
-
-    /*
-       stuff done only on the first call of the function 
-     */
-    if (SRF_IS_FIRSTCALL())
-      {
-          MemoryContext oldcontext;
-
-          /*
-             create a function context for cross-call persistence 
-           */
-          funcctx = SRF_FIRSTCALL_INIT();
-
-          /*
-             switch to memory context appropriate for multiple function calls 
-           */
-          oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-
-          /*
-             Build a tuple descriptor for our result type 
-           */
-          if (get_call_result_type(fcinfo, NULL, &tupdesc) !=
-              TYPEFUNC_COMPOSITE)
-              ereport(ERROR,
-                      (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                       errmsg("function returning record called in context "
-                              "that cannot accept type record")));
-
-          /*
-           * generate attribute metadata needed later to produce tuples from raw
-           * C strings
-           */
-          attinmeta = TupleDescGetAttInMetadata(tupdesc);
-          funcctx->attinmeta = attinmeta;
-
-          funcctx->max_calls = 1;
-
-          MemoryContextSwitchTo(oldcontext);
-      }
-
-    /*
-       stuff done on every call of the function 
-     */
-    funcctx = SRF_PERCALL_SETUP();
-
-    call_cntr = funcctx->call_cntr;
-    max_calls = funcctx->max_calls;
-    attinmeta = funcctx->attinmeta;
-
-    if (call_cntr < max_calls)  /* do when there is more left to send */
-      {
-          HeapTuple   tuple;
-          Datum       result;
-
-          char      **values = NULL;
-
-          values = (char **) palloc(4 * sizeof(char *));
-          values[i_load1] = (char *) palloc((FLOAT_LEN + 1) * sizeof(char));
-          values[i_load5] = (char *) palloc((FLOAT_LEN + 1) * sizeof(char));
-          values[i_load15] = (char *) palloc((FLOAT_LEN + 1) * sizeof(char));
-          values[i_last_pid] =
-              (char *) palloc((INTEGER_LEN + 1) * sizeof(char));
-
-          if (get_loadavg(values) == 0)
-              SRF_RETURN_DONE(funcctx);
-
-          /*
-             build a tuple 
-           */
-          tuple = BuildTupleFromCStrings(attinmeta, values);
-
-          /*
-             make the tuple into a datum 
-           */
-          result = HeapTupleGetDatum(tuple);
-
-          SRF_RETURN_NEXT(funcctx, result);
-      }
-    else                        /* do when there is no more left */
-      {
-          SRF_RETURN_DONE(funcctx);
-      }
-}
-
-int get_loadavg(char **values)
-{
-#ifdef __linux__
-    int         length;
-
     struct statfs sb;
     int         fd;
     int         len;
     char        buffer[4096];
-    char       *p;
-    char       *q;
+	float		loadavg1 = 0.0;
+	float		loadavg5 = 0.0;
+	float		loadavg15 = 0.0;
+	TupleDesc	tupleDesc;
+	HeapTuple	tuple;
+	Datum		values[8];
+    bool		nulls[8];
+	Datum		result;
 
+	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
+		elog(ERROR, "return type must be a row type");
+	Assert(tupleDesc->natts == lengthof(values));
+
+#ifdef __linux__
     /*
        Check if /proc is mounted. 
      */
@@ -305,56 +207,25 @@ int get_loadavg(char **values)
     buffer[len] = '\0';
     elog(DEBUG5, "pg_loadavg: %s", buffer);
 
-    p = buffer;
+    sscanf(buffer, "%f %f %f",
+				&loadavg1, &loadavg5, &loadavg15);
 
-    /*
-       load1 
-     */
-    GET_NEXT_VALUE(p, q, values[i_load1], length, "load1 not found", ' ');
+	memset(nulls, 0, sizeof(nulls));
+	memset(values, 0, sizeof(values));
+	values[0] = Float4GetDatum(loadavg1);
+	values[1] = Float4GetDatum(loadavg5);
+	values[2] = Float4GetDatum(loadavg15);
 
-    /*
-       load5 
-     */
-    GET_NEXT_VALUE(p, q, values[i_load5], length, "load5 not found", ' ');
-
-    /*
-       load15 
-     */
-    GET_NEXT_VALUE(p, q, values[i_load15], length, "load15 not found", ' ');
-
-    SKIP_TOKEN(p);              /* skip running/tasks */
-
-    /*
-       last_pid 
-     */
-    /*
-     * It appears sometimes this is the last item in /proc/PID/stat and
-     * sometimes it's not, depending on the version of the kernel and
-     * possibly the architecture.  So first test if it is the last item
-     * before determining how to deliminate it.
-     */
-    if (strchr(p, ' ') == NULL)
-      {
-          GET_NEXT_VALUE(p, q, values[i_last_pid], length,
-                         "last_pid not found", '\n');
-      }
-    else
-      {
-          GET_NEXT_VALUE(p, q, values[i_last_pid], length,
-                         "last_pid not found", ' ');
-      }
 #endif                          /* __linux__ */
 
-    elog(DEBUG5, "pg_loadavg: [%d] load1 = %s", (int) i_load1,
-         values[i_load1]);
-    elog(DEBUG5, "pg_loadavg: [%d] load5 = %s", (int) i_load5,
-         values[i_load5]);
-    elog(DEBUG5, "pg_loadavg: [%d] load15 = %s", (int) i_load15,
-         values[i_load15]);
-    elog(DEBUG5, "pg_loadavg: [%d] last_pid = %s", (int) i_last_pid,
-         values[i_last_pid]);
+    elog(DEBUG5, "pg_loadavg: load1 = %f", loadavg1);
+    elog(DEBUG5, "pg_loadavg: load5 = %f", loadavg5);
+    elog(DEBUG5, "pg_loadavg: load15 = %f", loadavg15);
 
-    return 1;
+	tuple = heap_form_tuple(tupleDesc, values, nulls);
+	result = HeapTupleGetDatum(tuple);
+
+	PG_RETURN_DATUM(result);
 }
 
 Datum pg_memusage(PG_FUNCTION_ARGS)
