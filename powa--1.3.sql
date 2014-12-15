@@ -147,9 +147,9 @@ CREATE TABLE powa_mem_history_current (
 
 CREATE TYPE powa_load_history_record AS (
     ts timestamp with time zone,
-    load1 bigint,
-    load5 bigint,
-    load15 bigint
+    load1 float4,
+    load5 float4,
+    load15 float4
 );
 
 CREATE TABLE powa_load_history (
@@ -192,10 +192,9 @@ AS 'MODULE_PATHNAME', 'pg_cputime'
 LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OR REPLACE FUNCTION pg_loadavg(
-		OUT load1 FLOAT,
-		OUT load5 FLOAT,
-		OUT load15 FLOAT,
-		OUT last_pid INTEGER)
+		OUT load1 float4,
+		OUT load5 float4,
+		OUT load15 float4)
 RETURNS SETOF record
 AS 'MODULE_PATHNAME', 'pg_loadavg'
 LANGUAGE C IMMUTABLE STRICT;
