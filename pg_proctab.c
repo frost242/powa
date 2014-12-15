@@ -8,6 +8,8 @@
 #include <string.h>
 #include "fmgr.h"
 #include "funcapi.h"
+#include "access/htup_details.h"                                                               
+
 #include <sys/vfs.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -97,112 +99,31 @@ PG_FUNCTION_INFO_V1(pg_memusage);
 
 Datum pg_cputime(PG_FUNCTION_ARGS)
 {
-    FuncCallContext *funcctx;
-    int         call_cntr;
-    int         max_calls;
-    TupleDesc   tupdesc;
-    AttInMetadata *attinmeta;
-
-    elog(DEBUG5, "pg_cputime: Entering stored function.");
-
-    /*
-       stuff done only on the first call of the function 
-     */
-    if (SRF_IS_FIRSTCALL())
-      {
-          MemoryContext oldcontext;
-
-          /*
-             create a function context for cross-call persistence 
-           */
-          funcctx = SRF_FIRSTCALL_INIT();
-
-          /*
-             switch to memory context appropriate for multiple function calls 
-           */
-          oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-
-          /*
-             Build a tuple descriptor for our result type 
-           */
-          if (get_call_result_type(fcinfo, NULL, &tupdesc) !=
-              TYPEFUNC_COMPOSITE)
-              ereport(ERROR,
-                      (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-                       errmsg("function returning record called in context "
-                              "that cannot accept type record")));
-
-          /*
-           * generate attribute metadata needed later to produce tuples from raw
-           * C strings
-           */
-          attinmeta = TupleDescGetAttInMetadata(tupdesc);
-          funcctx->attinmeta = attinmeta;
-
-          funcctx->max_calls = 1;
-
-          MemoryContextSwitchTo(oldcontext);
-      }
-
-    /*
-       stuff done on every call of the function 
-     */
-    funcctx = SRF_PERCALL_SETUP();
-
-    call_cntr = funcctx->call_cntr;
-    max_calls = funcctx->max_calls;
-    attinmeta = funcctx->attinmeta;
-
-    if (call_cntr < max_calls)  /* do when there is more left to send */
-      {
-          HeapTuple   tuple;
-          Datum       result;
-
-          char      **values = NULL;
-
-          values = (char **) palloc(8 * sizeof(char *));
-          values[i_user] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_nice_c] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_system] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_idle] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_iowait] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_irq] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_softirq] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-          values[i_steal] = (char *) palloc((BIGINT_LEN + 1) * sizeof(char));
-
-          if (get_cputime(values) == 0)
-              SRF_RETURN_DONE(funcctx);
-
-          /*
-             build a tuple 
-           */
-          tuple = BuildTupleFromCStrings(attinmeta, values);
-
-          /*
-             make the tuple into a datum 
-           */
-          result = HeapTupleGetDatum(tuple);
-
-          SRF_RETURN_NEXT(funcctx, result);
-      }
-    else                        /* do when there is no more left */
-      {
-          SRF_RETURN_DONE(funcctx);
-      }
-}
-
-int get_cputime(char **values)
-{
-#ifdef __linux__
     struct statfs sb;
     int         fd;
     int         len;
     char        buffer[4096];
-    char       *p;
-    char       *q;
+//	int			num = 0;
+	/* metrics */
+    int64		cpuuser = 0;
+    int64		cpunice = 0;
+    int64		cpusys = 0;
+    int64		cpuidle = 0;
+    int64		cpuiowait = 0;
+    int64		cpuirq = 0;
+    int64		cpusoftirq = 0;
+    int64		cpusteal = 0;
+	/* output stuff */
+	TupleDesc	tupleDesc;
+	HeapTuple	tuple;
+	Datum		values[8];
+    bool		nulls[8];
+	Datum		result;
 
-    int         length;
-
+	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
+		elog(ERROR, "return type must be a row type");
+	Assert(tupleDesc->natts == lengthof(values));
+#ifdef __linux__
     /*
        Check if /proc is mounted. 
      */
@@ -216,74 +137,46 @@ int get_cputime(char **values)
     fd = open(buffer, O_RDONLY);
     if (fd == -1)
       {
-          elog(ERROR, "'%s' not found", buffer);
+          elog(ERROR, "could not open file '%s'", buffer);
           return 0;
       }
-    len = read(fd, buffer, sizeof(buffer) - 1);
+    if ( (len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
+	{
+		elog(ERROR, "could not read file '/proc/stat'");
+	}
+
     close(fd);
     buffer[len] = '\0';
-    elog(DEBUG5, "pg_cputime: %s", buffer);
 
-    p = buffer;
-
-    SKIP_TOKEN(p);              /* skip cpu */
-
-    /*
-       user 
-     */
-    GET_NEXT_VALUE(p, q, values[i_user], length, "user not found", ' ');
-
-    /*
-       nice 
-     */
-    GET_NEXT_VALUE(p, q, values[i_nice_c], length, "nice not found", ' ');
-
-    /*
-       system 
-     */
-    GET_NEXT_VALUE(p, q, values[i_system], length, "system not found", ' ');
-
-    /*
-       idle 
-     */
-    GET_NEXT_VALUE(p, q, values[i_idle], length, "idle not found", ' ');
-
-    /*
-       iowait 
-     */
-    GET_NEXT_VALUE(p, q, values[i_iowait], length, "iowait not found", ' ');
-
-    /*
-       irq 
-     */
-    GET_NEXT_VALUE(p, q, values[i_irq], length, "irq not found", ' ');
-
-    /*
-       softirq 
-     */
-    GET_NEXT_VALUE(p, q, values[i_softirq], length, "softirq not found", ' ');
-
-    /*
-       steal 
-     */
-    GET_NEXT_VALUE(p, q, values[i_steal], length, "steal not found", ' ');
+    sscanf(buffer, "cpu %lu %lu %lu %lu %lu %lu %lu %lu",
+				&cpuuser, &cpunice, &cpusys, &cpuidle, &cpuiowait, &cpuirq,
+                &cpusoftirq, &cpusteal);
 #endif                          /* __linux__ */
+/*
+    elog(DEBUG5, "pg_cputime: [%d] user = %08d", (int) i_user, cpuuser);
+    elog(DEBUG5, "pg_cputime: [%d] nice = %08d", (int) i_nice_c, cpunice);
+    elog(DEBUG5, "pg_cputime: [%d] system = %08d", (int) i_system, cpusys);
+    elog(DEBUG5, "pg_cputime: [%d] idle = %08d", (int) i_idle, cpuidle);
+    elog(DEBUG5, "pg_cputime: [%d] iowait = %08d", (int) i_iowait, cpuiowait);
+    elog(DEBUG5, "pg_cputime: [%d] irq = %08d", (int) i_irq, cpuirq);
+    elog(DEBUG5, "pg_cputime: [%d] softirq = %08d", (int) i_softirq, cpusoftirq);
+    elog(DEBUG5, "pg_cputime: [%d] steal = %08d", (int) i_steal, cpusteal);
+*/
+	memset(nulls, 0, sizeof(nulls));
+	memset(values, 0, sizeof(values));
+		values[0] = Int64GetDatum(cpuuser);
+		values[1] = Int64GetDatum(cpunice);
+		values[2] = Int64GetDatum(cpusys);
+		values[3] = Int64GetDatum(cpuidle);
+		values[4] = Int64GetDatum(cpuiowait);
+		values[5] = Int64GetDatum(cpuirq);
+		values[6] = Int64GetDatum(cpusoftirq);
+		values[7] = Int64GetDatum(cpusteal);
 
-    elog(DEBUG5, "pg_cputime: [%d] user = %s", (int) i_user, values[i_user]);
-    elog(DEBUG5, "pg_cputime: [%d] nice = %s", (int) i_nice_c,
-         values[i_nice_c]);
-    elog(DEBUG5, "pg_cputime: [%d] system = %s", (int) i_system,
-         values[i_system]);
-    elog(DEBUG5, "pg_cputime: [%d] idle = %s", (int) i_idle, values[i_idle]);
-    elog(DEBUG5, "pg_cputime: [%d] iowait = %s", (int) i_iowait,
-         values[i_iowait]);
-    elog(DEBUG5, "pg_cputime: [%d] irq = %s", (int) i_irq, values[i_irq]);
-    elog(DEBUG5, "pg_cputime: [%d] softirq = %s", (int) i_softirq,
-         values[i_softirq]);
-    elog(DEBUG5, "pg_cputime: [%d] steal = %s", (int) i_steal,
-         values[i_steal]);
+	tuple = heap_form_tuple(tupleDesc, values, nulls);
+	result = HeapTupleGetDatum(tuple);
 
-    return 1;
+	PG_RETURN_DATUM(result);
 }
 
 Datum pg_loadavg(PG_FUNCTION_ARGS)
