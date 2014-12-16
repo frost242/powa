@@ -852,7 +852,7 @@ $PROC$ LANGUAGE plpgsql;
 -- sample function for Load Average
 CREATE OR REPLACE FUNCTION powa_proctab_get_load_statdata_sample (ts_start timestamp with time zone,
      ts_end timestamp with time zone, samples integer)
- RETURNS TABLE (ts timestamp with time zone, load1 bigint, load5 bigint, load15 bigint)
+ RETURNS TABLE (ts timestamp with time zone, load1 float4, load5 float4, load15 float4)
 AS $PROC$
 BEGIN
    RETURN QUERY
