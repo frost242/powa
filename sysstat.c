@@ -102,8 +102,8 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
     int64		cpusteal = 0;
 	TupleDesc	tupleDesc;
 	HeapTuple	tuple;
-	Datum		values[3];
-    bool		nulls[3];
+	Datum		values[8];
+    bool		nulls[8];
 	Datum		result;
 
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
@@ -177,8 +177,8 @@ Datum pg_loadavg(PG_FUNCTION_ARGS)
 	float		loadavg15 = 0.0;
 	TupleDesc	tupleDesc;
 	HeapTuple	tuple;
-	Datum		values[8];
-    bool		nulls[8];
+	Datum		values[3];
+    bool		nulls[3];
 	Datum		result;
 
 	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
