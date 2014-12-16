@@ -22,26 +22,9 @@
 #include <linux/magic.h>
 #endif
 
-#define FULLCOMM_LEN 1024
 #define BIGINT_LEN 20
-#define FLOAT_LEN 20
-#define INTEGER_LEN 10
 
 #ifdef __linux__
-#define GET_VALUE(value) \
-		p = strchr(p, ':'); \
-		++p; \
-		++p; \
-		q = strchr(p, '\n'); \
-		len = q - p; \
-		if (len >= BIGINT_LEN) \
-		{ \
-			elog(ERROR, "value is larger than the buffer: %d\n", __LINE__); \
-			return 0; \
-		} \
-		strncpy(value, p, len); \
-		value[len] = '\0';
-
 #define PROCFS "/proc"
 
 #define GET_NEXT_VALUE(p, q, value, length, msg, delim) \
