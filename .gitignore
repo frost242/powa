@@ -1,5 +1,5 @@
 powa.o
-pg_proctab.o
+sysstat.o
 powa.so
 ui/powa.conf
 ui/log
