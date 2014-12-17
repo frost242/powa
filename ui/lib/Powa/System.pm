@@ -213,7 +213,7 @@ sub loaddata_agg {
     $properties->{legend}{position} = "ne";
 
 	$properties->{yaxis}{unit} = '';
-	$properties->{lines}{stacked} = $json->true;
+	$properties->{lines}{stacked} = $json->false;
 	$properties->{lines}{fill} = $json->true;
 
 	$properties->{title} = "POWA : Load Average";
