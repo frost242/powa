@@ -39,13 +39,6 @@
 			p++;
 #endif                          /* __linux__ */
 
-enum cputime { i_user, i_nice_c, i_system, i_idle, i_iowait, i_irq, i_softirq,
-    i_steal
-};
-enum memusage { i_memused, i_memfree, i_memshared, i_membuffers, i_memcached,
-    i_swapused, i_swapfree, i_swapcached
-};
-
 Datum       pg_cputime(PG_FUNCTION_ARGS);
 Datum       pg_loadavg(PG_FUNCTION_ARGS);
 Datum       pg_memusage(PG_FUNCTION_ARGS);
@@ -108,15 +101,14 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
            &cpusoftirq, &cpusteal);
 #endif                          /* __linux__ */
 
-    elog(DEBUG5, "pg_cputime: [%d] user = %ld", (int) i_user, cpuuser);
-    elog(DEBUG5, "pg_cputime: [%d] nice = %ld", (int) i_nice_c, cpunice);
-    elog(DEBUG5, "pg_cputime: [%d] system = %ld", (int) i_system, cpusys);
-    elog(DEBUG5, "pg_cputime: [%d] idle = %ld", (int) i_idle, cpuidle);
-    elog(DEBUG5, "pg_cputime: [%d] iowait = %ld", (int) i_iowait, cpuiowait);
-    elog(DEBUG5, "pg_cputime: [%d] irq = %ld", (int) i_irq, cpuirq);
-    elog(DEBUG5, "pg_cputime: [%d] softirq = %ld", (int) i_softirq,
-         cpusoftirq);
-    elog(DEBUG5, "pg_cputime: [%d] steal = %ld", (int) i_steal, cpusteal);
+    elog(DEBUG5, "pg_cputime: user = %ld", cpuuser);
+    elog(DEBUG5, "pg_cputime: nice = %ld", cpunice);
+    elog(DEBUG5, "pg_cputime: system = %ld", cpusys);
+    elog(DEBUG5, "pg_cputime: idle = %ld", cpuidle);
+    elog(DEBUG5, "pg_cputime: iowait = %ld", cpuiowait);
+    elog(DEBUG5, "pg_cputime: irq = %ld", cpuirq);
+    elog(DEBUG5, "pg_cputime: softirq = %ld", cpusoftirq);
+    elog(DEBUG5, "pg_cputime: steal = %ld", cpusteal);
 
     memset(nulls, 0, sizeof(nulls));
     memset(values, 0, sizeof(values));
@@ -281,7 +273,6 @@ Datum pg_memusage(PG_FUNCTION_ARGS)
             }
           else if (strncmp(p, "Shmem:", 6) == 0)
             {
-				/* TODO: Fix this part */
                 SKIP_TOKEN(p);
                 memshared = strtoul(p, &p, 10);
             }
