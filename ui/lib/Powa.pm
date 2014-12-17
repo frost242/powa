@@ -72,6 +72,15 @@ sub startup {
     $r_auth->route('/data/statement/listdbdata')->to('statement#listdbdata')->name('statement_listdbdata');
     $r_auth->route('/data/statement/dbdata')->to('statement#dbdata')->name('statement_dbdata');
     $r_auth->route('/data/statement/querydata')->to('statement#querydata')->name('statement_querydata');
+	# System
+    $r_auth->route('/system/cpu')->to('system#cpu')->name('system_cpu');
+    $r_auth->route('/system/mem')->to('system#mem')->name('system_mem');
+    $r_auth->route('/system/load')->to('system#load')->name('system_load');
+	# System graph data
+    $r_auth->post('/system/cpudata_agg')->to('system#cpudata_agg')->name('system_cpudata_agg');
+    $r_auth->post('/system/memdata_agg')->to('system#memdata_agg')->name('system_memdata_agg');
+    $r_auth->post('/system/loaddata_agg')->to('system#loaddata_agg')->name('system_loaddata_agg');
+
 }
 
 1;

@@ -1,0 +1,15 @@
+% layout config 'layout';                                                                                                                                                                      
+% content_for body_scripts => begin
+<script type="text/javascript" src="<%= url_for '/js/systemcpu.js' %>"></script>
+%end
+
+%= include('graphs/navigation');
+
+<div class="row container-fluid">
+  % my $graph = ();
+  % $graph->{url} = 'system_cpudata_agg';
+  % $graph->{class} = 'col-md-6';
+
+    %= include('graphs/graph', graph => $graph);
+</div>
+
