@@ -1,5 +1,5 @@
 MODULE_big = powa
-OBJS = powa.o pg_proctab.o
+OBJS = powa.o sysstat.o
 EXTENSION = powa
 DATA = powa--1.1.sql powa--1.2.sql powa--1.1--1.2.sql powa--1.3.sql
 DOCS = README.md
