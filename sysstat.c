@@ -8,7 +8,7 @@
 #include <string.h>
 #include "fmgr.h"
 #include "funcapi.h"
-#include "access/htup_details.h"                                                               
+#include "access/htup_details.h"
 
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -75,23 +75,23 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
     int         fd;
     int         len;
     char        buffer[4096];
-    int64		cpuuser = 0;
-    int64		cpunice = 0;
-    int64		cpusys = 0;
-    int64		cpuidle = 0;
-    int64		cpuiowait = 0;
-    int64		cpuirq = 0;
-    int64		cpusoftirq = 0;
-    int64		cpusteal = 0;
-	TupleDesc	tupleDesc;
-	HeapTuple	tuple;
-	Datum		values[8];
-    bool		nulls[8];
-	Datum		result;
+    int64       cpuuser = 0;
+    int64       cpunice = 0;
+    int64       cpusys = 0;
+    int64       cpuidle = 0;
+    int64       cpuiowait = 0;
+    int64       cpuirq = 0;
+    int64       cpusoftirq = 0;
+    int64       cpusteal = 0;
+    TupleDesc   tupleDesc;
+    HeapTuple   tuple;
+    Datum       values[8];
+    bool        nulls[8];
+    Datum       result;
 
-	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
-		elog(ERROR, "return type must be a row type");
-	Assert(tupleDesc->natts == lengthof(values));
+    if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
+        elog(ERROR, "return type must be a row type");
+    Assert(tupleDesc->natts == lengthof(values));
 
 #ifdef __linux__
     /*
@@ -110,17 +110,17 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
           elog(ERROR, "could not open file '%s'", buffer);
           return 0;
       }
-    if ( (len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
-	{
-		elog(ERROR, "could not read file '/proc/stat'");
-	}
+    if ((len = read(fd, buffer, sizeof(buffer) - 1)) < 0)
+      {
+          elog(ERROR, "could not read file '/proc/stat'");
+      }
 
     close(fd);
     buffer[len] = '\0';
 
     sscanf(buffer, "cpu %lu %lu %lu %lu %lu %lu %lu %lu",
-				&cpuuser, &cpunice, &cpusys, &cpuidle, &cpuiowait, &cpuirq,
-                &cpusoftirq, &cpusteal);
+           &cpuuser, &cpunice, &cpusys, &cpuidle, &cpuiowait, &cpuirq,
+           &cpusoftirq, &cpusteal);
 #endif                          /* __linux__ */
 
     elog(DEBUG5, "pg_cputime: [%d] user = %ld", (int) i_user, cpuuser);
@@ -129,24 +129,25 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
     elog(DEBUG5, "pg_cputime: [%d] idle = %ld", (int) i_idle, cpuidle);
     elog(DEBUG5, "pg_cputime: [%d] iowait = %ld", (int) i_iowait, cpuiowait);
     elog(DEBUG5, "pg_cputime: [%d] irq = %ld", (int) i_irq, cpuirq);
-    elog(DEBUG5, "pg_cputime: [%d] softirq = %ld", (int) i_softirq, cpusoftirq);
+    elog(DEBUG5, "pg_cputime: [%d] softirq = %ld", (int) i_softirq,
+         cpusoftirq);
     elog(DEBUG5, "pg_cputime: [%d] steal = %ld", (int) i_steal, cpusteal);
 
-	memset(nulls, 0, sizeof(nulls));
-	memset(values, 0, sizeof(values));
-	values[0] = Int64GetDatum(cpuuser);
-	values[1] = Int64GetDatum(cpunice);
-	values[2] = Int64GetDatum(cpusys);
-	values[3] = Int64GetDatum(cpuidle);
-	values[4] = Int64GetDatum(cpuiowait);
-	values[5] = Int64GetDatum(cpuirq);
-	values[6] = Int64GetDatum(cpusoftirq);
-	values[7] = Int64GetDatum(cpusteal);
+    memset(nulls, 0, sizeof(nulls));
+    memset(values, 0, sizeof(values));
+    values[0] = Int64GetDatum(cpuuser);
+    values[1] = Int64GetDatum(cpunice);
+    values[2] = Int64GetDatum(cpusys);
+    values[3] = Int64GetDatum(cpuidle);
+    values[4] = Int64GetDatum(cpuiowait);
+    values[5] = Int64GetDatum(cpuirq);
+    values[6] = Int64GetDatum(cpusoftirq);
+    values[7] = Int64GetDatum(cpusteal);
 
-	tuple = heap_form_tuple(tupleDesc, values, nulls);
-	result = HeapTupleGetDatum(tuple);
+    tuple = heap_form_tuple(tupleDesc, values, nulls);
+    result = HeapTupleGetDatum(tuple);
 
-	PG_RETURN_DATUM(result);
+    PG_RETURN_DATUM(result);
 }
 
 Datum pg_loadavg(PG_FUNCTION_ARGS)
@@ -155,18 +156,18 @@ Datum pg_loadavg(PG_FUNCTION_ARGS)
     int         fd;
     int         len;
     char        buffer[4096];
-	float		loadavg1 = 0.0;
-	float		loadavg5 = 0.0;
-	float		loadavg15 = 0.0;
-	TupleDesc	tupleDesc;
-	HeapTuple	tuple;
-	Datum		values[3];
-    bool		nulls[3];
-	Datum		result;
+    float       loadavg1 = 0.0;
+    float       loadavg5 = 0.0;
+    float       loadavg15 = 0.0;
+    TupleDesc   tupleDesc;
+    HeapTuple   tuple;
+    Datum       values[3];
+    bool        nulls[3];
+    Datum       result;
 
-	if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
-		elog(ERROR, "return type must be a row type");
-	Assert(tupleDesc->natts == lengthof(values));
+    if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
+        elog(ERROR, "return type must be a row type");
+    Assert(tupleDesc->natts == lengthof(values));
 
 #ifdef __linux__
     /*
@@ -190,14 +191,13 @@ Datum pg_loadavg(PG_FUNCTION_ARGS)
     buffer[len] = '\0';
     elog(DEBUG5, "pg_loadavg: %s", buffer);
 
-    sscanf(buffer, "%f %f %f",
-				&loadavg1, &loadavg5, &loadavg15);
+    sscanf(buffer, "%f %f %f", &loadavg1, &loadavg5, &loadavg15);
 
-	memset(nulls, 0, sizeof(nulls));
-	memset(values, 0, sizeof(values));
-	values[0] = Float4GetDatum(loadavg1);
-	values[1] = Float4GetDatum(loadavg5);
-	values[2] = Float4GetDatum(loadavg15);
+    memset(nulls, 0, sizeof(nulls));
+    memset(values, 0, sizeof(values));
+    values[0] = Float4GetDatum(loadavg1);
+    values[1] = Float4GetDatum(loadavg5);
+    values[2] = Float4GetDatum(loadavg15);
 
 #endif                          /* __linux__ */
 
@@ -205,10 +205,10 @@ Datum pg_loadavg(PG_FUNCTION_ARGS)
     elog(DEBUG5, "pg_loadavg: load5 = %f", loadavg5);
     elog(DEBUG5, "pg_loadavg: load15 = %f", loadavg15);
 
-	tuple = heap_form_tuple(tupleDesc, values, nulls);
-	result = HeapTupleGetDatum(tuple);
+    tuple = heap_form_tuple(tupleDesc, values, nulls);
+    result = HeapTupleGetDatum(tuple);
 
-	PG_RETURN_DATUM(result);
+    PG_RETURN_DATUM(result);
 }
 
 Datum pg_memusage(PG_FUNCTION_ARGS)
