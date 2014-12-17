@@ -147,7 +147,7 @@ sub memdata_agg {
     $properties->{legend}{show} = $json->false;
     $properties->{legend}{position} = "ne";
 
-	$properties->{yaxis}{unit} = 'bytes';
+	$properties->{yaxis}{unit} = 'B';
 	$properties->{lines}{stacked} = $json->true;
 	$properties->{lines}{fill} = $json->true;
 
