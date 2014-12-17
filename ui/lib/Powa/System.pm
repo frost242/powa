@@ -35,10 +35,10 @@ sub cpudata_agg {
     $to = substr $to, 0, -3;
 
 	$sql = $dbh->prepare("SELECT (extract(epoch FROM ts)*1000)::bigint AS ts,
-                   round(cpuuser::numeric, 2), round(cpunice::numeric, 2),
-                   round(cpusystem::numeric, 2), round(cpuidle::numeric, 2),
-                   round(cpuiowait::numeric, 2), round(cpuirq::numeric, 2),
-                   round(cpusoftirq::numeric, 2), round(cpusteal::numeric, 2)
+                   round(cpuuser::numeric, 2) AS cpuuser, round(cpunice::numeric, 2) AS cpunice,
+                   round(cpusystem::numeric, 2) AS cpusystem,
+                   round(cpuiowait::numeric, 2) AS cpuiowait, round(cpuirq::numeric, 2) AS cpuirq,
+                   round(cpusoftirq::numeric, 2) AS cpusoftirq, round(cpusteal::numeric, 2) AS cpusteal
               FROM powa_proctab_get_cpu_statdata_sample(to_timestamp(?), to_timestamp(?), 300)
 ");
 	$sql->execute($from, $to);
@@ -50,11 +50,10 @@ sub cpudata_agg {
 		push @{$series->{'cpuuser'}},  [ 0 + $tab[0], 0.0 + $tab[1] ];
 		push @{$series->{'cpunice'}},   [ 0 + $tab[0], 0.0 + $tab[2] ];
 		push @{$series->{'cpusystem'}},   [ 0 + $tab[0], 0.0 + $tab[3] ];
-		push @{$series->{'cpuidle'}},   [ 0 + $tab[0], 0.0 + $tab[4] ];
-		push @{$series->{'cpuiowait'}},   [ 0 + $tab[0], 0.0 + $tab[5] ];
-		push @{$series->{'cpuirq'}},   [ 0 + $tab[0], 0.0 + $tab[6] ];
-		push @{$series->{'cpusoftirq'}},   [ 0 + $tab[0], 0.0 + $tab[7] ];
-		push @{$series->{'cpusteal'}},   [ 0 + $tab[0], 0.0 + $tab[8] ];
+		push @{$series->{'cpuiowait'}},   [ 0 + $tab[0], 0.0 + $tab[4] ];
+		push @{$series->{'cpuirq'}},   [ 0 + $tab[0], 0.0 + $tab[5] ];
+		push @{$series->{'cpusoftirq'}},   [ 0 + $tab[0], 0.0 + $tab[6] ];
+		push @{$series->{'cpusteal'}},   [ 0 + $tab[0], 0.0 + $tab[7] ];
 	}
     $sql->finish();
 
@@ -63,7 +62,6 @@ sub cpudata_agg {
 	push @{$data}, { data => $series->{'cpuuser'}, label => "user" };
 	push @{$data}, { data => $series->{'cpunice'}, label => "nice" };
 	push @{$data}, { data => $series->{'cpusystem'}, label => "system" };
-	push @{$data}, { data => $series->{'cpuidle'}, label => "idle" };
 	push @{$data}, { data => $series->{'cpuiowait'}, label => "waitio" };
 	push @{$data}, { data => $series->{'cpuirq'}, label => "irq" };
 	push @{$data}, { data => $series->{'cpusoftirq'}, label => "softirq" };
