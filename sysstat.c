@@ -57,6 +57,8 @@ enum memusage { i_memused, i_memfree, i_memshared, i_membuffers, i_memcached,
     i_swapused, i_swapfree, i_swapcached
 };
 
+int get_memusage(char **values);
+
 Datum       pg_cputime(PG_FUNCTION_ARGS);
 Datum       pg_loadavg(PG_FUNCTION_ARGS);
 Datum       pg_memusage(PG_FUNCTION_ARGS);
