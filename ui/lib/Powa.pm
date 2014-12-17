@@ -74,6 +74,7 @@ sub startup {
     $r_auth->route('/data/statement/querydata')->to('statement#querydata')->name('statement_querydata');
 	# System
     $r_auth->route('/system/cpu')->to('system#cpu')->name('system_cpu');
+    $r_auth->route('/system/all')->to('system#all')->name('system_all');
     $r_auth->route('/system/mem')->to('system#mem')->name('system_mem');
     $r_auth->route('/system/load')->to('system#load')->name('system_load');
 	# System graph data

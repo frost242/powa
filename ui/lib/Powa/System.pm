@@ -10,6 +10,18 @@ use Digest::SHA qw(sha256_hex);
 use Mojo::ByteStream 'b';
 use Powa::Beautify;
 
+sub all {
+    my $self = shift;
+    my $base_timestamp = undef;
+
+    $base_timestamp = $self->config->{base_timestamp} if ( defined $self->config->{base_timestamp} );
+
+    $self->stash( 'base_timestamp' => $base_timestamp );
+	$self->stash( subtitle => 'System activity' );
+
+    $self->render();
+}
+
 sub cpu {
     my $self = shift;
     my $base_timestamp = undef;
@@ -126,9 +138,9 @@ sub memdata_agg {
 		push @{$series->{'memshared'}},   [ 0 + $tab[0], 0.0 + $tab[3] ];
 		push @{$series->{'membuffers'}},   [ 0 + $tab[0], 0.0 + $tab[4] ];
 		push @{$series->{'memcached'}},   [ 0 + $tab[0], 0.0 + $tab[5] ];
-		push @{$series->{'swapused'}},   [ 0 + $tab[0], 0.0 + $tab[6] ];
-		push @{$series->{'swapfree'}},   [ 0 + $tab[0], 0.0 + $tab[7] ];
-		push @{$series->{'swapcached'}},   [ 0 + $tab[0], 0.0 + $tab[8] ];
+#		push @{$series->{'swapused'}},   [ 0 + $tab[0], 0.0 + $tab[6] ];
+#		push @{$series->{'swapfree'}},   [ 0 + $tab[0], 0.0 + $tab[7] ];
+#		push @{$series->{'swapcached'}},   [ 0 + $tab[0], 0.0 + $tab[8] ];
 	}
     $sql->finish();
 
@@ -139,9 +151,9 @@ sub memdata_agg {
 	push @{$data}, { data => $series->{'memshared'}, label => "shared" };
 	push @{$data}, { data => $series->{'membuffers'}, label => "buffers" };
 	push @{$data}, { data => $series->{'memcached'}, label => "cached" };
-	push @{$data}, { data => $series->{'swapused'}, label => "swapused" };
-	push @{$data}, { data => $series->{'swapfree'}, label => "swapfree" };
-	push @{$data}, { data => $series->{'swapcached'}, label => "swapcached" };
+#	push @{$data}, { data => $series->{'swapused'}, label => "swapused" };
+#	push @{$data}, { data => $series->{'swapfree'}, label => "swapfree" };
+#	push @{$data}, { data => $series->{'swapcached'}, label => "swapcached" };
 
 	my $properties = {};
     $properties->{legend}{show} = $json->false;
