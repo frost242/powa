@@ -161,9 +161,37 @@ CREATE TABLE powa_load_history_current (
     record powa_load_history_record
 );
 
+CREATE TYPE powa_disk_history_record AS (
+    ts timestamp with time zone,
+    major smallint,
+    minor smallint,
+    devname text,
+    reads_completed bigint,
+    reads_merged bigint,
+    sectors_read bigint,
+    readtime bigint,
+    writes_completed bigint,
+    writes_merged bigint,
+    sectors_written bigint,
+    writetime bigint,
+    current_io bigint,
+    iotime bigint,
+    totaliotime bigint
+);
+
+CREATE TABLE powa_disk_history (
+    coalesce_range tstzrange,
+    records powa_disk_history_record[]
+);
+
+CREATE TABLE powa_disk_history_current (
+    record powa_disk_history_record
+);
+
 CREATE INDEX powa_cpu_history_ts ON powa_cpu_history USING gist (coalesce_range);
 CREATE INDEX powa_mem_history_ts ON powa_mem_history USING gist (coalesce_range);
 CREATE INDEX powa_load_history_ts ON powa_load_history USING gist (coalesce_range);
+CREATE INDEX powa_disk_history_ts ON powa_disk_history USING gist (coalesce_range);
 
 /* register proctab functions */
 INSERT INTO powa_functions VALUES ('snapshot','powa_take_proctab_snapshot',false),('aggregate','powa_proctab_aggregate',true),('purge','powa_proctab_purge',true);
@@ -175,6 +203,8 @@ SELECT pg_catalog.pg_extension_config_dump('powa_mem_history','');
 SELECT pg_catalog.pg_extension_config_dump('powa_mem_history_current','');
 SELECT pg_catalog.pg_extension_config_dump('powa_load_history','');
 SELECT pg_catalog.pg_extension_config_dump('powa_load_history_current','');
+SELECT pg_catalog.pg_extension_config_dump('powa_disk_history','');
+SELECT pg_catalog.pg_extension_config_dump('powa_disk_history_current','');
 
 /* pg_proctab functions, original work by Mark Wong */
 
