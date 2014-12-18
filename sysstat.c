@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2008 Mark Wong
  * Additionnal work by Thomas Reiss, 2014
@@ -390,13 +389,11 @@ Datum pg_diskusage(PG_FUNCTION_ARGS)
     memset(values, 0, sizeof(values));
 
 #ifdef __linux__
-
     if (statfs("/proc", &sb) < 0 || sb.f_type != PROC_SUPER_MAGIC)
       {
           elog(ERROR, "proc filesystem not mounted on /proc\n");
           return (Datum) 0;
       }
-
     if ((fd = AllocateFile("/proc/diskstats", PG_BINARY_R)) == NULL)
       {
           elog(ERROR, "'%s' not found", buffer);
