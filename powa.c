@@ -212,5 +212,3 @@ static void powa_sighup(SIGNAL_ARGS)
     ProcessConfigFile(PGC_SIGHUP);
     die_on_too_small_frequency();
 }
-
-
