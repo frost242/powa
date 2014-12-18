@@ -9,3 +9,10 @@ This is a list of all functions and what they are used for:
   * `powa_getstatdata_sample_db`: same as powa_getstatdata_sample, but for a whole database. As there is no per database aggregation for now, this can be a bit costly. This may be improved in a future release.
   * `powa_getstatdata_db`: returns all the pg_stat_statements on all the queries on a database for a given period. Should seldom be used in a GUI (or anywhere), at least in the period is large.
   * `powa_stats_reset`: cleans-up pg_stat_staments collected data. **FIXME: Should be moved to dedicated functions, and stored in powa_functions**.
+
+Some more functions based on pg_proctab were added to gather system statistics. Linux is the only supported system right now.
+  * `pg_cputime`: outputs CPU time counters.
+  * `pg_loadavg`: outputs load average counters.
+  * `pg_memusage`: outputs memory usage counters.
+  * `pg_diskusage`: outputs per storage device usage counters.
+
