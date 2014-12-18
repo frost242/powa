@@ -8,7 +8,11 @@
 #include <string.h>
 #include "fmgr.h"
 #include "funcapi.h"
+#include "miscadmin.h"
 #include "access/htup_details.h"
+#include "utils/tuplestore.h"
+#include "storage/fd.h"
+#include "utils/builtins.h"
 
 #include <sys/vfs.h>
 #include <unistd.h>
@@ -42,10 +46,12 @@
 Datum       pg_cputime(PG_FUNCTION_ARGS);
 Datum       pg_loadavg(PG_FUNCTION_ARGS);
 Datum       pg_memusage(PG_FUNCTION_ARGS);
+Datum       pg_diskusage(PG_FUNCTION_ARGS);
 
 PG_FUNCTION_INFO_V1(pg_cputime);
 PG_FUNCTION_INFO_V1(pg_loadavg);
 PG_FUNCTION_INFO_V1(pg_memusage);
+PG_FUNCTION_INFO_V1(pg_diskusage);
 
 Datum pg_cputime(PG_FUNCTION_ARGS)
 {
@@ -129,7 +135,7 @@ Datum pg_cputime(PG_FUNCTION_ARGS)
 
 Datum pg_loadavg(PG_FUNCTION_ARGS)
 {
-    struct      statfs sb;
+    struct statfs sb;
     int         fd;
     int         len;
     char        buffer[4096];
@@ -250,23 +256,24 @@ Datum pg_memusage(PG_FUNCTION_ARGS)
           if (strncmp(p, "Buffers:", 8) == 0)
             {
                 SKIP_TOKEN(p);
-				membuffers = strtoul(p, &p, 10);
+                membuffers = strtoul(p, &p, 10);
             }
           else if (strncmp(p, "Cached:", 7) == 0)
             {
                 SKIP_TOKEN(p);
-				memcached = strtoul(p, &p, 10);
+                memcached = strtoul(p, &p, 10);
             }
           else if (strncmp(p, "MemFree:", 8) == 0)
             {
                 SKIP_TOKEN(p);
                 memfree = strtoul(p, &p, 10);
-				memused = memtotal - memfree;
+                memused = memtotal - memfree;
             }
           else if (strncmp(p, "MemShared:", 10) == 0)
             {
-				/* does not exist anymore in kernel 3.13
-                 * TODO: remove this counter
+                /*
+                   does not exist anymore in kernel 3.13
+                   * TODO: remove this counter
                  */
                 SKIP_TOKEN(p);
                 memshared = strtoul(p, &p, 10);
@@ -285,7 +292,7 @@ Datum pg_memusage(PG_FUNCTION_ARGS)
             {
                 SKIP_TOKEN(p);
                 swapfree = strtoul(p, &p, 10);
-				swapused = swaptotal - swapfree;
+                swapused = swaptotal - swapfree;
             }
           else if (strncmp(p, "SwapCached:", 11) == 0)
             {
@@ -316,4 +323,115 @@ Datum pg_memusage(PG_FUNCTION_ARGS)
     result = HeapTupleGetDatum(tuple);
 
     PG_RETURN_DATUM(result);
+}
+
+/* SRF function that returns diskstats */
+Datum pg_diskusage(PG_FUNCTION_ARGS)
+{
+    ReturnSetInfo *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
+    MemoryContext per_query_ctx;
+    MemoryContext oldcontext;
+    TupleDesc   tupleDesc;
+    Tuplestorestate *tupleStore;
+
+    Datum       values[14];
+    bool        nulls[14];
+
+    char        buffer[4096];
+    struct statfs sb;
+    FILE       *fd;
+    int         ret;
+
+    int         major = 0;
+    int         minor = 0;
+    char       *device_name = NULL;
+    int64       reads_completed = 0;
+    int64       reads_merged = 0;
+    int64       sectors_read = 0;
+    int64       readtime = 0;
+    int64       writes_completed = 0;
+    int64       writes_merged = 0;
+    int64       sectors_written = 0;
+    int64       writetime = 0;
+    int64       current_io = 0;
+    int64       iotime = 0;
+    int64       totaliotime = 0;
+
+//printf("test\n");
+    elog(DEBUG5, "pg_diskusage: Entering stored function.");
+
+    if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                 errmsg
+                 ("set-valued function called in context that cannot accept a set")));
+    if (!(rsinfo->allowedModes & SFRM_Materialize))
+        ereport(ERROR,
+                (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                 errmsg("materialize mode required, but it is not "
+                        "allowed in this context")));
+
+    per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+    oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
+    /*
+       Build a tuple descriptor for our result type 
+     */
+    if (get_call_result_type(fcinfo, NULL, &tupleDesc) != TYPEFUNC_COMPOSITE)
+        elog(ERROR, "return type must be a row type");
+
+    tupleStore = tuplestore_begin_heap(true, false, work_mem);
+    rsinfo->returnMode = SFRM_Materialize;
+    rsinfo->setResult = tupleStore;
+    rsinfo->setDesc = tupleDesc;
+
+    MemoryContextSwitchTo(oldcontext);
+
+    memset(nulls, 0, sizeof(nulls));
+    memset(values, 0, sizeof(values));
+
+#ifdef __linux__
+
+    if (statfs("/proc", &sb) < 0 || sb.f_type != PROC_SUPER_MAGIC)
+      {
+          elog(ERROR, "proc filesystem not mounted on /proc\n");
+          return (Datum) 0;
+      }
+
+    if ((fd = AllocateFile("/proc/diskstats", PG_BINARY_R)) == NULL)
+      {
+          elog(ERROR, "'%s' not found", buffer);
+          return (Datum) 0;
+      }
+
+    device_name = buffer;
+    while ((ret =
+            fscanf(fd, "%d %d %s %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu",
+                   &major, &minor, device_name, &reads_completed,
+                   &reads_merged, &sectors_read, &readtime, &writes_completed,
+                   &writes_merged, &sectors_written, &writetime, &current_io,
+                   &iotime, &totaliotime)) != EOF)
+      {
+          values[0] = Int32GetDatum(major);
+          values[1] = Int32GetDatum(minor);
+          values[2] = CStringGetTextDatum(device_name);
+          values[3] = Int64GetDatumFast(reads_completed);
+          values[4] = Int64GetDatumFast(reads_merged);
+          values[5] = Int64GetDatumFast(sectors_read);
+          values[6] = Int64GetDatumFast(readtime);
+          values[7] = Int64GetDatumFast(writes_completed);
+          values[8] = Int64GetDatumFast(writes_merged);
+          values[9] = Int64GetDatumFast(sectors_written);
+          values[10] = Int64GetDatumFast(writetime);
+          values[11] = Int64GetDatumFast(current_io);
+          values[12] = Int64GetDatumFast(iotime);
+          values[13] = Int64GetDatumFast(totaliotime);
+          tuplestore_putvalues(tupleStore, tupleDesc, values, nulls);
+      }
+    FreeFile(fd);
+#endif                          /* __linux */
+
+    tuplestore_donestoring(tupleStore);
+
+    return (Datum) 0;
 }
