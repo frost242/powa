@@ -357,7 +357,6 @@ Datum pg_diskusage(PG_FUNCTION_ARGS)
     int64       iotime = 0;
     int64       totaliotime = 0;
 
-//printf("test\n");
     elog(DEBUG5, "pg_diskusage: Entering stored function.");
 
     if (rsinfo == NULL || !IsA(rsinfo, ReturnSetInfo))
