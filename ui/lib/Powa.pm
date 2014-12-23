@@ -81,6 +81,7 @@ sub startup {
     $r_auth->post('/system/cpudata_agg')->to('system#cpudata_agg')->name('system_cpudata_agg');
     $r_auth->post('/system/memdata_agg')->to('system#memdata_agg')->name('system_memdata_agg');
     $r_auth->post('/system/loaddata_agg')->to('system#loaddata_agg')->name('system_loaddata_agg');
+    $r_auth->post('/system/diskdata_agg')->to('system#diskdata_agg')->name('system_diskdata_agg');
 
 }
 

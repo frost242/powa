@@ -1,0 +1,64 @@
+% layout config 'layout';                                                                                                                                                                      
+% content_for body_scripts => begin
+%end
+
+%= include('graphs/navigation');
+
+<h1>Disks</h1>
+
+<h2>sda</h2>
+
+<div class="row container-fluid">
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'reads';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'writes';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+</div>
+
+<div class="row container-fluid">
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'total_read';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'total_written';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+</div>
+
+<div class="row container-fluid">
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'read_time';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+
+  % my $graph = ();
+  % $graph->{url} = 'system_diskdata_agg';
+  % $graph->{class} = 'col-md-6';
+  % $graph->{id} = 'write_time';
+  % $graph->{device} = $device_names;
+
+  %= include('graphs/graph', graph => $graph);
+</div>
+

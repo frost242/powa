@@ -31,6 +31,11 @@
                <i class="glyphicon glyphicon-hdd"></i> Load Avg.
             <% end %>
          </li>
+         <li>
+            <%= link_to url_for ('system_disk')->query(  from => $from, to => $to ) => ( class => "change-page") => begin %>
+               <i class="glyphicon glyphicon-hdd"></i> Disk
+            <% end %>
+         </li>
       </ul>
   </div>
   <div class="btn-group">
