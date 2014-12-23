@@ -467,6 +467,12 @@ BEGIN
         SELECT ROW(now(), load.load1, load.load5, load.load15)::powa_load_history_record AS record
           FROM pg_loadavg() load;
 
+        INSERT INTO powa_disk_history_current (record)
+        SELECT ROW(now(), major, minor, devname, reads_completed, reads_merged, sectors_read,
+                   readtime, writes_completed, writes_merged, sectors_written, writetime,
+                   current_io, iotime, totaliotime)::powa_disk_history_record AS record
+          FROM pg_diskusage() disk;
+
         SELECT true::boolean INTO result; -- For now we don't care. What could we do on error except crash anyway?
 END;
 $PROC$ language plpgsql;
@@ -496,6 +502,12 @@ BEGIN
              array_agg(record)
         FROM powa_load_history_current;
     TRUNCATE powa_load_history_current;
+
+    INSERT INTO powa_disk_history
+      SELECT tstzrange(min((record).ts), max((record).ts),'[]'),
+             array_agg(record)
+        FROM powa_disk_history_current;
+    TRUNCATE powa_disk_history_current;
  END;
 $PROC$ LANGUAGE plpgsql;
 
@@ -506,6 +518,7 @@ BEGIN
     DELETE FROM powa_cpu_history WHERE upper(coalesce_range)< (now() - current_setting('powa.retention')::interval);
     DELETE FROM powa_mem_history WHERE upper(coalesce_range)< (now() - current_setting('powa.retention')::interval);
     DELETE FROM powa_load_history WHERE upper(coalesce_range)< (now() - current_setting('powa.retention')::interval);
+    DELETE FROM powa_disk_history WHERE upper(coalesce_range)< (now() - current_setting('powa.retention')::interval);
 END;
 $PROC$ LANGUAGE plpgsql;
 
@@ -923,5 +936,53 @@ BEGIN
    SELECT hd.ts, hd.load1, hd.load5, hd.load15
      FROM sampled_load_history hd
     WHERE hd.load1 IS NOT NULL;
+END;
+$PROC$ LANGUAGE plpgsql;
+
+-- sample function for disk usage stats
+CREATE OR REPLACE FUNCTION powa_proctab_get_disk_statdata_sample (ts_start timestamp with time zone,
+     ts_end timestamp with time zone, samples integer)
+ RETURNS TABLE (ts timestamp with time zone, major smallint, minor smallint, devname text,
+                reads_completed bigint, reads_merged bigint, sectors_read bigint, readtime bigint,
+                writes_completed bigint, writes_merged bigint, sectors_written bigint, writetime bigint,
+                current_io bigint, iotime bigint, totaliotime bigint)
+AS $PROC$
+BEGIN
+   RETURN QUERY
+   WITH disk_history AS (
+        SELECT (h.records).*
+          FROM (SELECT unnest(records) AS records FROM powa_disk_history) h
+        UNION ALL
+        SELECT (c.record).*
+         FROM powa_disk_history_current c
+   ), disk_history_number AS (
+        SELECT row_number() OVER (order by disk_history.ts) AS number, *
+          FROM disk_history
+         WHERE disk_history.ts >= ts_start
+   ), sampled_disk_history AS (
+        SELECT *
+          FROM disk_history_number
+         WHERE number % (int8larger((SELECT count(*) FROM disk_history)/(samples+1),1) )=0
+   ), disk_history_differential AS (
+        SELECT sh.ts, sh.major, sh.minor, sh.devname,
+           int8larger(lead(sh.reads_completed) over (querygroup) - sh.reads_completed,0) AS reads_completed,
+           int8larger(lead(sh.reads_merged) over (querygroup) - sh.reads_merged,0) AS reads_merged,
+           int8larger(lead(sh.sectors_read) over (querygroup) - sh.sectors_read,0) AS sectors_read,
+           int8larger(lead(sh.readtime) over (querygroup) - sh.readtime,0) AS readtime,
+           int8larger(lead(sh.writes_completed) over (querygroup) - sh.writes_completed,0) AS writes_completed,
+           int8larger(lead(sh.writes_merged) over (querygroup) - sh.writes_merged,0) AS writes_merged,
+           int8larger(lead(sh.sectors_written) over (querygroup) - sh.sectors_written,0) AS sectors_written,
+           int8larger(lead(sh.writetime) over (querygroup) - sh.writetime,0) AS writetime,
+           int8larger(lead(sh.current_io) over (querygroup) - sh.current_io,0) AS current_io,
+           int8larger(lead(sh.iotime) over (querygroup) - sh.iotime,0) AS iotime,
+           int8larger(lead(sh.totaliotime) over (querygroup) - sh.totaliotime,0) AS totaliotime
+          FROM sampled_disk_history sh
+         WINDOW querygroup AS (PARTITION BY sh.devname ORDER BY sh.ts)
+   )
+   SELECT hd.ts, hd.major, hd.minor, hd.devname, hd.reads_completed, hd.reads_merged,
+          hd.sectors_read, hd.readtime, hd.writes_completed, hd.writes_merged, hd.sectors_written, hd.writetime,
+          hd.current_io, hd.iotime, hd.totaliotime
+     FROM disk_history_differential hd
+    WHERE hd.reads_completed IS NOT NULL;
 END;
 $PROC$ LANGUAGE plpgsql;
